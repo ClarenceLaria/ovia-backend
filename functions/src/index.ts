@@ -1,19 +1,20 @@
-/**
- * Import function triggers from their respective submodules:
- *
- * import {onCall} from "firebase-functions/v2/https";
- * import {onDocumentWritten} from "firebase-functions/v2/firestore";
- *
- * See a full list of supported triggers at https://firebase.google.com/docs/functions
- */
-
-import {onRequest} from "firebase-functions/v2/https";
+import * as functions from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
+import express from "express";
 
-// Start writing functions
-// https://firebase.google.com/docs/functions/typescript
+// Initialize Express app
+const app = express();
 
-// export const helloWorld = onRequest((request, response) => {
-//   logger.info("Hello logs!", {structuredData: true});
-//   response.send("Hello from Firebase!");
-// });
+// Example route
+app.get("/", (req, res) => {
+  logger.info("Root route hit");
+  res.send("Hello from Express inside Firebase!");
+});
+
+// Example route for your app
+app.get("/status", (req, res) => {
+  res.json({status: "Ovia backend running 🚀"});
+});
+
+// Export the Express app as a Firebase Function
+export const api = functions.onRequest(app);
