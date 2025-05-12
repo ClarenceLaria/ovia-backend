@@ -32,7 +32,6 @@ app.post("/register", async (req, res) => {
       return res.status(400).json({message: "All fields are required"});
     }
 
-    // Create user in Firebase Auth
     const userRecord = await admin.auth().createUser({
       email,
       password,
@@ -47,11 +46,11 @@ app.post("/register", async (req, res) => {
     });
 
     return res.status(201).json({
-      message: "User registered",
+      message: "User registered successfully",
       uid: userRecord.uid,
     });
   } catch (error: unknown) {
-    console.error("Registration error:", error);
+    console.error("Error registering user:", error);
     const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
     return res.status(500).json({message: errorMessage});
   }
