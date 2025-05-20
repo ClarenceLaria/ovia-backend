@@ -115,5 +115,53 @@ app.post("/logPeriodStart", async (req, res) => {
   }
 });
 
+app.get("/get-user-cycle", async (req, res) => {
+  try {
+    const userId = req.body.userId;
+    if (!userId) {
+      return res.status(400).json({message: "Missing userId"});
+    }
+
+    const userDoc = await db.collection("userinfo").doc(userId).get();
+
+    if (!userDoc.exists) {
+      return res.status(404).json({message: "User not found"});
+    }
+
+    const data = userDoc.data();
+    const lastPeriodDate = data?.lastPeriodDate.toDate ? data.lastPeriodDate.toDate() : new Date(data?.lastPeriodDate);
+    const cycleLength = data?.cycleLength;
+    const periodDuration = data?.periodDuration;
+
+    // Calculate next period days
+    const periodDays = [];
+    for (let i = 0; i < periodDuration; i++) {
+      const date = new Date(lastPeriodDate);
+      date.setDate(date.getDate() + i);
+      periodDays.push(date.toISOString().split("T")[0]);
+    }
+
+    // Calculate ovulation day (cycleLength - 14 days from last period)
+    const ovulationDay = new Date(lastPeriodDate);
+    ovulationDay.setDate(ovulationDay.getDate() + (cycleLength - 14));
+
+    // Fertile window: 2 days before and after ovulation
+    const fertileWindow = [];
+    for (let i = -2; i <= 2; i++) {
+      const fertileDate = new Date(ovulationDay);
+      fertileDate.setDate(fertileDate.getDate() + i);
+      fertileWindow.push(fertileDate.toISOString().split("T")[0]);
+    }
+
+    return res.status(200).json({
+      periodDays,
+      fertileWindow,
+      ovulationDay: ovulationDay.toISOString().split("T")[0],
+    });
+  } catch (error) {
+    console.error("Error getting cycle data:", error);
+    return res.status(500).json({message: "Internal server error"});
+  }
+});
 
 export const api = functions.onRequest(app);
