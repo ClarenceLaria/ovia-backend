@@ -117,8 +117,8 @@ app.post("/logPeriodStart", async (req, res) => {
 
 app.get("/get-user-cycle", async (req, res) => {
   try {
-    const userId = req.body.userId;
-    if (!userId) {
+    const userId = req.query.userId;
+    if (!userId || typeof userId !== "string") {
       return res.status(400).json({message: "Missing userId"});
     }
 
