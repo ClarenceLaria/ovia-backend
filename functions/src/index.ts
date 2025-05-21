@@ -129,34 +129,46 @@ app.get("/get-user-cycle", async (req, res) => {
     }
 
     const data = userDoc.data();
-    const lastPeriodDate = data?.lastPeriodDate.toDate ? data.lastPeriodDate.toDate() : new Date(data?.lastPeriodDate);
-    const cycleLength = data?.cycleLength;
-    const periodDuration = data?.periodDuration;
+    const lastPeriodDate = data?.lastPeriodDate.toDate ?
+      data.lastPeriodDate.toDate() :
+      new Date(data?.lastPeriodDate);
 
-    // Calculate next period days
-    const periodDays = [];
-    for (let i = 0; i < periodDuration; i++) {
-      const date = new Date(lastPeriodDate);
-      date.setDate(date.getDate() + i);
-      periodDays.push(date.toISOString().split("T")[0]);
-    }
+    const cycleLength = parseInt(data?.cycleLength) || 28; // fallback
+    const periodDuration = parseInt(data?.periodDuration) || 5;
 
-    // Calculate ovulation day (cycleLength - 14 days from last period)
-    const ovulationDay = new Date(lastPeriodDate);
-    ovulationDay.setDate(ovulationDay.getDate() + (cycleLength - 14));
+    const numberOfCyclesToGenerate = 12; // Predict 12 future cycles (~1 year)
+    const periodDays: string[] = [];
+    const fertileWindow: string[] = [];
+    const ovulationDays: string[] = [];
 
-    // Fertile window: 2 days before and after ovulation
-    const fertileWindow = [];
-    for (let i = -2; i <= 2; i++) {
-      const fertileDate = new Date(ovulationDay);
-      fertileDate.setDate(fertileDate.getDate() + i);
-      fertileWindow.push(fertileDate.toISOString().split("T")[0]);
+    for (let cycle = 0; cycle < numberOfCyclesToGenerate; cycle++) {
+      const cycleStart = new Date(lastPeriodDate);
+      cycleStart.setDate(cycleStart.getDate() + cycle * cycleLength);
+
+      // Period days
+      for (let i = 0; i < periodDuration; i++) {
+        const periodDate = new Date(cycleStart);
+        periodDate.setDate(periodDate.getDate() + i);
+        periodDays.push(periodDate.toISOString().split("T")[0]);
+      }
+
+      // Ovulation day
+      const ovulationDate = new Date(cycleStart);
+      ovulationDate.setDate(ovulationDate.getDate() + (cycleLength - 14));
+      ovulationDays.push(ovulationDate.toISOString().split("T")[0]);
+
+      // Fertile window: 2 days before and after ovulation
+      for (let i = -2; i <= 2; i++) {
+        const fertileDate = new Date(ovulationDate);
+        fertileDate.setDate(fertileDate.getDate() + i);
+        fertileWindow.push(fertileDate.toISOString().split("T")[0]);
+      }
     }
 
     return res.status(200).json({
       periodDays,
       fertileWindow,
-      ovulationDay: ovulationDay.toISOString().split("T")[0],
+      ovulationDays,
     });
   } catch (error) {
     console.error("Error getting cycle data:", error);
