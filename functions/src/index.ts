@@ -176,7 +176,7 @@ app.get("/get-user-cycle", async (req, res) => {
   }
 });
 
-app.post("/save-pregnancy-setup", async (req, res) => {
+app.post("/save-pregnancy-info", async (req, res) => {
   try {
     const {userId, weeksPregnant, dueDate, lmp} = req.body;
 
