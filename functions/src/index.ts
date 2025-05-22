@@ -230,4 +230,58 @@ app.post("/save-pregnancy-info", async (req, res) => {
   }
 });
 
+app.get("/track-pregnancy", async (req, res) => {
+  try {
+    const userId = req.query.userId;
+
+    if (!userId || typeof userId !== "string") {
+      return res.status(400).json({message: "Missing or invalid userId."});
+    }
+
+    const pregnancyDoc = await db.collection("pregnancyData").doc(userId).get();
+
+    if (!pregnancyDoc.exists) {
+      return res.status(404).json({message: "Pregnancy data not found."});
+    }
+
+    const pregnancyData = pregnancyDoc.data();
+    const now = new Date();
+    const lmpDate = pregnancyData?.lmp ? new Date(pregnancyData.lmp) : null;
+    const dueDate = pregnancyData?.dueDate ? new Date(pregnancyData.dueDate) : null;
+
+    // Calculate weeks pregnant
+    const diffMs = now.getTime() - (lmpDate ? lmpDate.getTime() : 0); // Difference in milliseconds
+    const weeksPregnant = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000));
+
+    // Total duration of pregnancy in days (around 280 days)
+    const totalPregnancyDays = 280;
+    const daysPregnant = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const daysRemaining = Math.max(0, totalPregnancyDays - daysPregnant);
+    const percentageProgress = Math.min(100, Math.round((daysPregnant / totalPregnancyDays) * 100));
+
+    // Determine current trimester
+    let trimester = "";
+    if (weeksPregnant < 13) {
+      trimester = "First Trimester";
+    } else if (weeksPregnant < 27) {
+      trimester = "Second Trimester";
+    } else {
+      trimester = "Third Trimester";
+    }
+
+    return res.status(200).json({
+      userId,
+      weeksPregnant,
+      daysRemaining,
+      dueDate: dueDate ? dueDate.toISOString().split("T")[0] : null,
+      lmp: lmpDate ? lmpDate.toISOString().split("T")[0] : null,
+      percentageProgress,
+      trimester,
+    });
+  } catch (error) {
+    console.error("Error tracking pregnancy:", error);
+    return res.status(500).json({message: "Internal server error"});
+  }
+});
+
 export const api = functions.onRequest(app);
