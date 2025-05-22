@@ -176,4 +176,58 @@ app.get("/get-user-cycle", async (req, res) => {
   }
 });
 
+app.post("/save-pregnancy-setup", async (req, res) => {
+  try {
+    const {userId, weeksPregnant, dueDate, lmp} = req.body;
+
+    if (!userId || typeof userId !== "string") {
+      return res.status(400).json({message: "Missing or invalid userId."});
+    }
+
+    // Parse inputs
+    const now = new Date();
+    let parsedLmp = null;
+    let parsedDueDate = null;
+    let calculatedWeeks = null;
+
+    if (weeksPregnant) {
+      const weeks = parseInt(weeksPregnant);
+      parsedLmp = new Date(now);
+      parsedLmp.setDate(parsedLmp.getDate() - weeks * 7);
+      parsedDueDate = new Date(parsedLmp);
+      parsedDueDate.setDate(parsedLmp.getDate() + 280);
+      calculatedWeeks = weeks;
+    } else if (dueDate) {
+      parsedDueDate = new Date(dueDate);
+      parsedLmp = new Date(parsedDueDate);
+      parsedLmp.setDate(parsedDueDate.getDate() - 280);
+      calculatedWeeks = Math.floor((now.getTime() - parsedLmp.getTime()) / (7 * 24 * 60 * 60 * 1000));
+    } else if (lmp) {
+      parsedLmp = new Date(lmp);
+      parsedDueDate = new Date(parsedLmp);
+      parsedDueDate.setDate(parsedLmp.getDate() + 280);
+      calculatedWeeks = Math.floor((now.getTime() - parsedLmp.getTime()) / (7 * 24 * 60 * 60 * 1000));
+    } else {
+      return res.status(400).json({
+        message: "Provide either weeksPregnant, dueDate, or lmp.",
+      });
+    }
+
+    const payload = {
+      weeksPregnant: calculatedWeeks,
+      dueDate: parsedDueDate.toISOString(),
+      lmp: parsedLmp.toISOString(),
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    await db.collection("pregnancyData").doc(userId).set(payload, {merge: true});
+
+    return res.status(200).json({message: "Pregnancy data saved.", data: payload});
+  } catch (error) {
+    console.error("Error saving pregnancy setup:", error);
+    return res.status(500).json({message: "Internal server error."});
+  }
+});
+
 export const api = functions.onRequest(app);
