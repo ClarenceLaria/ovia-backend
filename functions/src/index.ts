@@ -178,7 +178,7 @@ app.get("/get-user-cycle", async (req, res) => {
 
 app.post("/save-pregnancy-info", async (req, res) => {
   try {
-    const {userId, weeksPregnant, dueDate, lmp} = req.body;
+    const {userId, isPregnant, weeksPregnant, dueDate, lmp} = req.body;
 
     if (!userId || typeof userId !== "string") {
       return res.status(400).json({message: "Missing or invalid userId."});
@@ -214,6 +214,7 @@ app.post("/save-pregnancy-info", async (req, res) => {
     }
 
     const payload = {
+      isPregnant: isPregnant,
       weeksPregnant: calculatedWeeks,
       dueDate: parsedDueDate.toISOString(),
       lmp: parsedLmp.toISOString(),
