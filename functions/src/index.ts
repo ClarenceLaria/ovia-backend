@@ -123,7 +123,6 @@ app.get("/get-user-cycle", async (req, res) => {
     }
 
     const userDoc = await db.collection("userinfo").doc(userId).get();
-
     if (!userDoc.exists) {
       return res.status(404).json({message: "User not found"});
     }
@@ -133,17 +132,47 @@ app.get("/get-user-cycle", async (req, res) => {
       data.lastPeriodDate.toDate() :
       new Date(data?.lastPeriodDate);
 
-    const cycleLength = parseInt(data?.cycleLength) || 28; // fallback
+    const cycleLength = parseInt(data?.cycleLength) || 28;
     const periodDuration = parseInt(data?.periodDuration) || 5;
 
-    const numberOfCyclesToGenerate = 12; // Predict 12 future cycles (~1 year)
+    const today = new Date();
+    // const todayStr = today.toISOString().split("T")[0];
+
+    const numberOfCyclesToGenerate = 12;
     const periodDays: string[] = [];
     const fertileWindow: string[] = [];
     const ovulationDays: string[] = [];
 
+    let currentPhase = "Unknown";
+    let currentDay = null;
+
     for (let cycle = 0; cycle < numberOfCyclesToGenerate; cycle++) {
       const cycleStart = new Date(lastPeriodDate);
       cycleStart.setDate(cycleStart.getDate() + cycle * cycleLength);
+
+      const cycleEnd = new Date(cycleStart);
+      cycleEnd.setDate(cycleStart.getDate() + cycleLength - 1);
+
+      if (today >= cycleStart && today <= cycleEnd) {
+        currentDay = Math.floor(
+          (today.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24)
+        ) + 1;
+
+        if (currentDay <= periodDuration) {
+          currentPhase = "Menstrual Phase";
+        } else if (
+          currentDay >= cycleLength - 14 - 2 &&
+          currentDay <= cycleLength - 14 + 2
+        ) {
+          currentPhase = "Fertile Window";
+        } else if (currentDay === cycleLength - 14) {
+          currentPhase = "Ovulation Phase";
+        } else if (currentDay > cycleLength - 14 + 2) {
+          currentPhase = "Luteal Phase";
+        } else {
+          currentPhase = "Follicular Phase";
+        }
+      }
 
       // Period days
       for (let i = 0; i < periodDuration; i++) {
@@ -154,10 +183,10 @@ app.get("/get-user-cycle", async (req, res) => {
 
       // Ovulation day
       const ovulationDate = new Date(cycleStart);
-      ovulationDate.setDate(ovulationDate.getDate() + (cycleLength - 14));
+      ovulationDate.setDate(cycleStart.getDate() + (cycleLength - 14));
       ovulationDays.push(ovulationDate.toISOString().split("T")[0]);
 
-      // Fertile window: 2 days before and after ovulation
+      // Fertile window
       for (let i = -2; i <= 2; i++) {
         const fertileDate = new Date(ovulationDate);
         fertileDate.setDate(fertileDate.getDate() + i);
@@ -169,6 +198,9 @@ app.get("/get-user-cycle", async (req, res) => {
       periodDays,
       fertileWindow,
       ovulationDays,
+      currentPhase,
+      currentDay,
+      cycleLength,
     });
   } catch (error) {
     console.error("Error getting cycle data:", error);
