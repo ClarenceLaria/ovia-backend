@@ -279,6 +279,7 @@ app.get("/track-pregnancy", async (req, res) => {
 
     const pregnancyData = pregnancyDoc.data();
     const now = new Date();
+    const isPregnant = pregnancyData?.isPregnant || false;
     const lmpDate = pregnancyData?.lmp ? new Date(pregnancyData.lmp) : null;
     const dueDate = pregnancyData?.dueDate ? new Date(pregnancyData.dueDate) : null;
 
@@ -304,6 +305,7 @@ app.get("/track-pregnancy", async (req, res) => {
 
     return res.status(200).json({
       userId,
+      isPregnant,
       weeksPregnant,
       daysRemaining,
       dueDate: dueDate ? dueDate.toISOString().split("T")[0] : null,
