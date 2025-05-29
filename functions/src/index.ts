@@ -319,4 +319,27 @@ app.get("/track-pregnancy", async (req, res) => {
   }
 });
 
+app.post("/post-mood-sex", async (req, res) => {
+  try {
+    const {userId, moods, sexOptions} = req.body;
+    if (!userId || !moods || !sexOptions) {
+      return res.status(400).json({message: "Missing required fields"});
+    }
+
+    const docRef = db.collection("moodSexData").doc(userId);
+
+    const moodSexData = await docRef.set({
+      userId,
+      moods,
+      sexOptions,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return res.status(201).json({message: "Data posted successfully", data: moodSexData});
+  } catch (error) {
+    console.error("Error posting mood");
+    return res.status(500).json({message: "Internal server error"});
+  }
+});
+
 export const api = functions.onRequest(app);
