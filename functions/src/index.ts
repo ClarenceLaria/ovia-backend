@@ -321,8 +321,8 @@ app.get("/track-pregnancy", async (req, res) => {
 
 app.post("/post-mood-sex", async (req, res) => {
   try {
-    const {userId, moods, sexOptions} = req.body;
-    if (!userId || !moods || !sexOptions) {
+    const {userId, moods, sexOption} = req.body;
+    if (!userId || !moods || !sexOption) {
       return res.status(400).json({message: "Missing required fields"});
     }
 
@@ -331,7 +331,7 @@ app.post("/post-mood-sex", async (req, res) => {
     const moodSexData = await docRef.set({
       userId,
       moods,
-      sexOptions,
+      sexOption,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
