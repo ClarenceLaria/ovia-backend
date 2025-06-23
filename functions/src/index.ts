@@ -342,4 +342,204 @@ app.post("/post-mood-sex", async (req, res) => {
   }
 });
 
+//  Deepseek chat integration
+/**
+ * [Describe what this function does]
+ */
+class DeepSeekAPI {
+  private apiKey: string;
+  private apiUrl: string;
+  private initialized: boolean;
+
+  constructor() {
+    this.apiKey = process.env.DEEPSEEK_API_KEY!;
+    this.apiUrl = "https://api.deepseek.com/v1/chat/completions";
+    this.initialized = false;
+  }
+
+  async initialize(): Promise<void> {
+    if (this.initialized) return;
+    try {
+      const testResponse = await this.sendRequest("PING_TEST", true);
+      if (testResponse) {
+        this.initialized = true;
+        console.log("DeepSeek API initialized successfully");
+      } else {
+        throw new Error("Failed to initialize DeepSeek API");
+      }
+    } catch (error) {
+      console.error("DeepSeek API initialization error:", error);
+      throw error;
+    }
+  }
+
+  async sendRequest(message: string, skipInitCheck = false): Promise<string> {
+    if (!this.initialized && !skipInitCheck) {
+      throw new Error("API not initialized. Call initialize() first.");
+    }
+    try {
+      const response = await fetch(this.apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "deepseek-r1-chat",
+          messages: [{ role: "user", content: message }],
+          temperature: 0.7,
+          max_tokens: 1000,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.error?.message ||
+            `API request failed with status ${response.status}`
+        );
+      }
+
+      const data = await response.json();
+      return data.choices[0].message.content;
+    } catch (error: any) {
+      console.error("DeepSeek API request error:", error);
+      throw error;
+    }
+  }
+}
+
+const deepSeekApi = new DeepSeekAPI();
+deepSeekApi.initialize();
+
+// --- Health Advice DB ---
+const healthAdviceDB: Record<string, string[]> = {
+  period: [
+    "Your period is part of a normal cycle, with most women experiencing bleeding for 3-7 days.",
+    "Tracking can help you understand your cycle better. Try documenting duration, flow, and symptoms.",
+  ],
+  pregnancy: [
+    "Congratulations! Early pregnancy symptoms often include fatigue, breast tenderness, and nausea.",
+    "It's recommended to schedule an ultrasound around 6 weeks for confirmation.",
+  ],
+  pain: [
+    "Mild period pain can be managed with over-the-counter ibuprofen or heating pad use.",
+    "Severe cramping may indicate underlying issues—consult a healthcare provider if pain is intense.",
+  ],
+  "delayed period": [
+    "A delayed period can be caused by stress, weight changes, or exercise intensity.",
+    "Pregnancy is a common cause—consider taking a pregnancy test if you've missed your period.",
+  ],
+  "irregular periods": [
+    "Irregular periods are common, especially during the reproductive years and perimenopause.",
+    "Most hormone-related issues resolve over time, but tracking can help identify patterns.",
+  ],
+};
+
+// --- DeepSeek Chat Endpoint ---
+app.post("/chat", async (req, res) => {
+  try {
+    const { message } = req.body;
+    if (!message) {
+      return res.status(400).json({
+        success: false,
+        error: "Message is required",
+      });
+    }
+    await deepSeekApi.initialize();
+    const response = await deepSeekApi.sendRequest(message);
+
+    const safeResponse = `
+${response}
+\n\n*Disclaimer: This response is for informational purposes only and does not constitute medical advice. Please consult a healthcare professional for personalized guidance.*
+    `;
+
+    return res.json({
+      success: true,
+      response: safeResponse,
+    });
+  } catch (error: any) {
+    console.error("Chat request error:", error);
+    let errorMessage =
+      error instanceof Error
+        ? error.message
+        : "An error occurred processing your request";
+    return res.status(500).json({
+      success: false,
+      error: errorMessage,
+    });
+  }
+});
+
+// --- Health Advice Endpoint ---
+app.get("/health-advice/:query", async (req, res) => {
+  try {
+    const { query } = req.params;
+    const searchTerm = query.toLowerCase();
+
+    for (const category in healthAdviceDB) {
+      if (
+        searchTerm.includes(category) ||
+        healthAdviceDB[category].some((item) =>
+          item.toLowerCase().includes(searchTerm)
+        )
+      ) {
+        return res.json({
+          success: true,
+          advice: healthAdviceDB[category],
+          category,
+        });
+      }
+    }
+
+    // If no match, query DeepSeek API
+    try {
+      await deepSeekApi.initialize();
+      const response = await deepSeekApi.sendRequest(
+        `Explain medical condition: ${query} Only include evidence-based information and recommend professional consultation when necessary.`
+      );
+      const formattedResponse = response.replace(
+        /^(.*):\s/gm,
+        "• $1:\n  "
+      );
+
+      // Save to knowledge base for future use
+      healthAdviceDB["other"] = [formattedResponse];
+
+      return res.json({
+        success: true,
+        advice: formattedResponse,
+        category: "other",
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        error: "Unable to retrieve health information at this time",
+        fallback: "For medical advice, please consult a healthcare professional.",
+      });
+    }
+  } catch (error) {
+    logger.error("Health advice error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Unable to retrieve health information at this time",
+    });
+  }
+});
+
+// --- Health Disclaimer Endpoint ---
+app.get("/disclaimer", (req, res) => {
+  res.header("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate");
+  res.header("Pragma", "no-cache");
+  res.header("Expires", "0");
+
+  const disclaimer = `
+This is an AI chat assistant for informational purposes regarding menstruation and pregnancy.
+It does not provide medical advice, diagnosis, or treatment. Always consult a healthcare provider
+for personalized medical guidance, especially for concerns about your health or medical conditions.
+  `;
+
+  res.send(disclaimer);
+});
+
 export const api = functions.onRequest(app);
