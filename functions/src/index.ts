@@ -342,7 +342,8 @@ app.post("/post-mood-sex", async (req, res) => {
   }
 });
 
-//  Deepseek chat integration
+const apiKey = process.env.DEEPSEEK_API_KEY;
+
 /**
  * [Describe what this function does]
  */
@@ -351,12 +352,18 @@ class DeepSeekAPI {
   private apiUrl: string;
   private initialized: boolean;
 
+  /**
+ * Constructor for deepseek class
+ */
   constructor() {
-    this.apiKey = process.env.DEEPSEEK_API_KEY!;
+    this.apiKey = apiKey || process.env.DEEPSEEK_API_KEY || "YOUR_API_KEY_HERE";
     this.apiUrl = "https://api.deepseek.com/v1/chat/completions";
     this.initialized = false;
   }
 
+  /**
+ * Initialize deepseek
+ */
   async initialize(): Promise<void> {
     if (this.initialized) return;
     try {
@@ -373,6 +380,12 @@ class DeepSeekAPI {
     }
   }
 
+  /**
+   * Sends a request to the DeepSeek API.
+   * @param {string} message - The message to send to the API.
+   * @param {boolean} [skipInitCheck=false] - If true, skips the initialization check.
+   * @return {Promise<string>} The API response as a string.
+  */
   async sendRequest(message: string, skipInitCheck = false): Promise<string> {
     if (!this.initialized && !skipInitCheck) {
       throw new Error("API not initialized. Call initialize() first.");
@@ -386,7 +399,7 @@ class DeepSeekAPI {
         },
         body: JSON.stringify({
           model: "deepseek-r1-chat",
-          messages: [{ role: "user", content: message }],
+          messages: [{role: "user", content: message}],
           temperature: 0.7,
           max_tokens: 1000,
         }),
@@ -402,7 +415,7 @@ class DeepSeekAPI {
 
       const data = await response.json();
       return data.choices[0].message.content;
-    } catch (error: any) {
+    } catch (error) {
       console.error("DeepSeek API request error:", error);
       throw error;
     }
@@ -414,15 +427,15 @@ deepSeekApi.initialize();
 
 // --- Health Advice DB ---
 const healthAdviceDB: Record<string, string[]> = {
-  period: [
+  "period": [
     "Your period is part of a normal cycle, with most women experiencing bleeding for 3-7 days.",
     "Tracking can help you understand your cycle better. Try documenting duration, flow, and symptoms.",
   ],
-  pregnancy: [
+  "pregnancy": [
     "Congratulations! Early pregnancy symptoms often include fatigue, breast tenderness, and nausea.",
     "It's recommended to schedule an ultrasound around 6 weeks for confirmation.",
   ],
-  pain: [
+  "pain": [
     "Mild period pain can be managed with over-the-counter ibuprofen or heating pad use.",
     "Severe cramping may indicate underlying issues—consult a healthcare provider if pain is intense.",
   ],
@@ -439,7 +452,7 @@ const healthAdviceDB: Record<string, string[]> = {
 // --- DeepSeek Chat Endpoint ---
 app.post("/chat", async (req, res) => {
   try {
-    const { message } = req.body;
+    const {message} = req.body;
     if (!message) {
       return res.status(400).json({
         success: false,
@@ -458,12 +471,12 @@ ${response}
       success: true,
       response: safeResponse,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Chat request error:", error);
-    let errorMessage =
-      error instanceof Error
-        ? error.message
-        : "An error occurred processing your request";
+    const errorMessage =
+      error instanceof Error ?
+        error.message :
+        "An error occurred processing your request";
     return res.status(500).json({
       success: false,
       error: errorMessage,
@@ -474,7 +487,7 @@ ${response}
 // --- Health Advice Endpoint ---
 app.get("/health-advice/:query", async (req, res) => {
   try {
-    const { query } = req.params;
+    const {query} = req.params;
     const searchTerm = query.toLowerCase();
 
     for (const category in healthAdviceDB) {
