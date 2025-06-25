@@ -343,14 +343,14 @@ app.post("/post-mood-sex", async (req, res) => {
 });
 
 app.get("/get-user-info", async (req, res) => {
-  try{
+  try {
     const userId = req.query.userId;
-    if(!userId || typeof userId !== "string") {
+    if (!userId || typeof userId !== "string") {
       return res.status(400).json({message: "Missing userId"});
     }
 
-    const userDoc = await db.collection('userinfo').doc(userId).get();
-    if(!userDoc.exists) {
+    const userDoc = await db.collection("userinfo").doc(userId).get();
+    if (!userDoc.exists) {
       return res.status(404).json({message: "User not found"});
     }
 
@@ -361,7 +361,7 @@ app.get("/get-user-info", async (req, res) => {
     console.error("Error getting user-info");
     return res.status(500).json({message: "Internal server error"});
   }
-})
+});
 
 const apiKey = process.env.DEEPSEEK_API_KEY;
 
